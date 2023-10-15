@@ -3,6 +3,7 @@
 '''
 Current Dev Dependencies:
     - pytest
+    - redis
 '''
 
 import setuptools
@@ -29,6 +30,7 @@ setuptools.setup(
     extras_require={
         'dev': [
             'pytest',
+            'redis'
         ],
     },
 )
