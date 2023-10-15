@@ -16,7 +16,6 @@ def client():
 
 def test_ping(client):
     response = client.ping()
-    print(response)
     assert response == True
 
 
