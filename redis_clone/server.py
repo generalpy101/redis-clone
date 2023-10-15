@@ -1,4 +1,4 @@
-import socket
+import time
 import sys
 import os
 import asyncio
@@ -28,6 +28,43 @@ class Protocol_2_Commands(Enum):
     DECR = "DECR"
     PING = "PING"
     ECHO = "ECHO"
+    
+class ExpiryValue:
+    def __init__(self, value, expiry_seconds=None, expiry_milliseconds=None, expiry_unix_timestamp_seconds=None, expiry_unix_timestamp_milliseconds=None) -> None:
+        self.value = value
+        self.expiry_seconds = time.time() + expiry_seconds if expiry_seconds else None
+        self.expiry_milliseconds = time.time() * 1000 + expiry_milliseconds if expiry_milliseconds else None
+        self.expiry_unix_timestamp_seconds = expiry_unix_timestamp_seconds
+        self.expiry_unix_timestamp_milliseconds = expiry_unix_timestamp_milliseconds
+
+    def get_value(self):
+        if self.expiry_milliseconds:
+            if self.expiry_milliseconds < int(time.time() * 1000):
+                return None
+        elif self.expiry_seconds:
+            if self.expiry_seconds < int(time.time()):
+                return None
+        elif self.expiry_unix_timestamp_milliseconds:
+            if self.expiry_unix_timestamp_milliseconds < int(time.time() * 1000):
+                return None
+        elif self.expiry_unix_timestamp_seconds:
+            if self.expiry_unix_timestamp_seconds < int(time.time()):
+                return None
+
+        return self.value
+    
+    def get_expiry_seconds(self):
+        return self.expiry_seconds
+
+    def get_expiry_milliseconds(self):
+        return self.expiry_milliseconds
+
+    def get_expiry_unix_timestamp_seconds(self):
+        return self.expiry_unix_timestamp_seconds
+    
+    def get_expiry_unix_timestamp_milliseconds(self):
+        return self.expiry_unix_timestamp_milliseconds
+
 
 
 class RedisServer:
@@ -87,20 +124,8 @@ class RedisServer:
                 Protocol_2_Data_Types.SIMPLE_STRING, " ".join(command_args)
             )
         elif command_name == Protocol_2_Commands.SET.value:
-            # Minimum 2 arguments required key and value
-            if len(command_args) < 2:
-                return self.response_builder.build_response(
-                    Protocol_2_Data_Types.ERROR,
-                    "ERR wrong number of arguments for 'SET' command",
-                )
-            key = command_args[0]
-            value = command_args[1]
+            return self._handle_set_command(command_args)
 
-            # Even if key exists, redis will overwrite the value
-            self.data_store[key] = value
-            return self.response_builder.build_response(
-                Protocol_2_Data_Types.SIMPLE_STRING, "OK"
-            )
         elif command_name == Protocol_2_Commands.GET.value:
             # Only 1 argument required key
             if len(command_args) != 1:
@@ -109,19 +134,166 @@ class RedisServer:
                     "ERR wrong number of arguments for 'GET' command",
                 )
             key = command_args[0]
+            value = None
             if key not in self.data_store:
                 return self.response_builder.build_response(
                     Protocol_2_Data_Types.BULK_STRING
                 )
+            else:
+                # Check the key is of type ExpiryValue
+                # This is to ensure uniformity in the when setting and getting values
+                if isinstance(self.data_store[key], ExpiryValue):
+                    value = self.data_store[key].get_value()
 
+            if value is None:
+                self._delete_expired_key(key)
+            
             return self.response_builder.build_response(
-                Protocol_2_Data_Types.BULK_STRING, self.data_store[key]
+                Protocol_2_Data_Types.BULK_STRING, value
             )
+        
+        elif command_name == Protocol_2_Commands.DEL.value:
+            # Minimum 1 argument required key
+            if len(command_args) < 1:
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.ERROR,
+                    "ERR wrong number of arguments for 'DEL' command",
+                )
+            
+            keys_deleted = 0
+            for key in command_args:
+                if key in self.data_store:
+                    del self.data_store[key]
+                    keys_deleted += 1 
+            
+            return self.response_builder.build_response(
+                Protocol_2_Data_Types.INTEGER, keys_deleted
+            )
+                
 
         return self.response_builder.build_response(
             Protocol_2_Data_Types.ERROR, "ERR unknown command '{}'".format(command_name)
         )
+        
+    def _handle_set_command(self, command_args):
+        # Minimum 2 arguments required key and value
+        if len(command_args) < 2:
+            return self.response_builder.build_response(
+                Protocol_2_Data_Types.ERROR,
+                "ERR wrong number of arguments for 'SET' command",
+            )
+        key = command_args[0]
+        value = command_args[1]
+        
+        subarg_values = {
+            "EX": None, # seconds
+            "PX": None, # milliseconds
+            "EXAT": None, # unix timestamp in seconds
+            "PXAT": None, # unix timestamp in milliseconds
+            "KEEPTTL": None, # keep the ttl of the key boolean
+            "GET": None, # return the value of the key booelan
+            "NX": None, # set if key does not exist boolean
+            "XX": None, # set if key exists boolean
+        }
 
+        # Check set command has optional arguments
+        if len(command_args) > 2:
+            # Subargs are in format (arg, value)
+            for subarg in command_args[2:]:
+                subarg_values[subarg[0]] = subarg[1]
+        
+        # Process subargs
+        # Check keepttl is not set with any other expiry subarg
+        if subarg_values["KEEPTTL"] and (subarg_values["EX"] or subarg_values["PX"] or subarg_values["EXAT"] or subarg_values["PXAT"]):
+            return self.response_builder.build_response(
+                Protocol_2_Data_Types.ERROR,
+                "ERR invalid expire command syntax",
+            )
+        
+        # Return error if both NX and XX are set
+        if subarg_values["NX"] and subarg_values["XX"]:
+            return self.response_builder.build_response(
+                Protocol_2_Data_Types.ERROR,
+                "ERR XX and NX options at the same time are not compatible",
+            )
+        
+        # Handle NX
+        # NX -- Only set the key if it does not already exist.
+        if subarg_values["NX"]:
+            if key in self.data_store:
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.BULK_STRING
+                )
+            else:
+                return self._assign_key_to_value(key, value, subarg_values)
+        
+        # Handle XX
+        # XX -- Only set the key if it already exists.
+        if subarg_values["XX"]:
+            if key not in self.data_store:
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.BULK_STRING
+                )
+            else:
+                return self._assign_key_to_value(key, value, subarg_values)
+        
+        # Handle GET
+        # GET -- Return the value of key
+        if subarg_values["GET"]:
+            if key in self.data_store:
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.BULK_STRING, self.data_store[key].get_value()
+                )
+            else:
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.BULK_STRING
+                )
+        
+        # Handle KEEPTTL
+        # KEEPTTL -- Retain the time to live associated with the key.
+        if subarg_values["KEEPTTL"]:
+            if key in self.data_store:
+                self.data_store[key] = ExpiryValue(
+                    value=value,
+                    expiry_seconds=self.data_store[key].get_expiry_seconds(),
+                    expiry_milliseconds=self.data_store[key].get_expiry_milliseconds(),
+                    expiry_unix_timestamp_seconds=self.data_store[key].get_expiry_unix_timestamp_seconds(),
+                    expiry_unix_timestamp_milliseconds=self.data_store[key].get_expiry_unix_timestamp_milliseconds(),
+                )
+                
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.SIMPLE_STRING, "OK"
+                )
+            else:
+                return self.response_builder.build_response(
+                    Protocol_2_Data_Types.BULK_STRING
+                )
+        
+        # Normal case for set
+        return self._assign_key_to_value(key, value, subarg_values)
+
+    def _assign_key_to_value(self, key, value, subargs):
+        try:
+            self.data_store[key] = ExpiryValue(
+                value=value,
+                expiry_seconds=int(subargs["EX"]) if subargs["EX"] else None,
+                expiry_milliseconds=int(subargs["PX"]) if subargs["PX"] else None,
+                expiry_unix_timestamp_seconds=int(subargs["EXAT"]) if subargs["EXAT"] else None,
+                expiry_unix_timestamp_milliseconds=int(subargs["PXAT"]) if subargs["PXAT"] else None,
+            )
+            return self.response_builder.build_response(
+                Protocol_2_Data_Types.SIMPLE_STRING, "OK"
+            )
+        except ValueError:
+            return self.response_builder.build_response(
+                Protocol_2_Data_Types.ERROR,
+                "ERR value is not an integer or out of range",
+            )
+            
+    def _delete_expired_key(self, key):
+        if key in self.data_store:
+            del self.data_store[key]
+    
     def stop(self):
         logger.info("Stopping server...")
         self.server.close()
