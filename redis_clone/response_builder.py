@@ -15,7 +15,7 @@ class ResponseBuilder:
         '''
         return self.build_response('OK', Protocol_2_Data_Types.SIMPLE_STRING)
         
-    def build_response(self, type, data):
+    def build_response(self, type, data=None):
         '''
         Build response according to protocol version
         '''
@@ -32,6 +32,8 @@ class ResponseBuilder:
             return self._build_protocol_2_error(data)
         elif type == Protocol_2_Data_Types.SIMPLE_STRING:
             return self._build_protocol_2_simple_string(data)
+        elif type == Protocol_2_Data_Types.BULK_STRING:
+            return self._build_protocol_2_bulk_string(data)
         else:
             raise Exception('Invalid protocol data type')
     
@@ -58,3 +60,22 @@ class ResponseBuilder:
         data = f'+{data}{PROTOCOL_SEPARATOR}'
         
         return data.encode('utf-8')
+    
+    def _build_protocol_2_bulk_string(self, data):
+        '''
+        Bulk Strings are used in order to represent a single binary safe string up to 512 MB in length.
+        They are encoded in the following way:
+        $<data length>\r\n
+        For example, "foobar" is encoded as "$6\r\nfoobar\r\n".
+        For nil values bulk strings are encoded with $-1\r\n
+        '''
+        
+        # If data is None then return nil value
+        if data is None:
+            return f'${-1}{PROTOCOL_SEPARATOR}'.encode('utf-8')
+        else:
+            # Syntax of bulk string is $<data length>
+            # So data is second element after bulk string specifier
+            data = f'${len(data)}{PROTOCOL_SEPARATOR}{data}{PROTOCOL_SEPARATOR}'
+            
+            return data.encode('utf-8')

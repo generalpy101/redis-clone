@@ -89,11 +89,31 @@ class RedisServer:
         command_name = command_name.upper()
         if command_name == Protocol_2_Commands.PING.value:
             return self.response_builder.build_response(Protocol_2_Data_Types.SIMPLE_STRING, 'PONG')
-        if command_name == Protocol_2_Commands.ECHO.value:
+        elif command_name == Protocol_2_Commands.ECHO.value:
             # Echo command returns the same string
             if len(command_args) == 0:
                 return self.response_builder.build_response(Protocol_2_Data_Types.ERROR, 'ERR wrong number of arguments for \'ECHO\' command')
             return self.response_builder.build_response(Protocol_2_Data_Types.SIMPLE_STRING, " ".join(command_args))
+        elif command_name == Protocol_2_Commands.SET.value:
+            # Minimum 2 arguments required key and value
+            if len(command_args) < 2:
+                return self.response_builder.build_response(Protocol_2_Data_Types.ERROR, 'ERR wrong number of arguments for \'SET\' command')
+            key = command_args[0]
+            value = command_args[1]
+            
+            # Even if key exists, redis will overwrite the value
+            self.data_store[key] = value
+            return self.response_builder.build_response(Protocol_2_Data_Types.SIMPLE_STRING, 'OK')
+        elif command_name == Protocol_2_Commands.GET.value:
+            # Only 1 argument required key
+            if len(command_args) != 1:
+                return self.response_builder.build_response(Protocol_2_Data_Types.ERROR, 'ERR wrong number of arguments for \'GET\' command')
+            key = command_args[0]
+            if key not in self.data_store:
+                return self.response_builder.build_response(Protocol_2_Data_Types.BULK_STRING)
+            
+            return self.response_builder.build_response(Protocol_2_Data_Types.BULK_STRING, self.data_store[key])
+            
         return self.response_builder.build_response(Protocol_2_Data_Types.ERROR, 'ERR unknown command \'{}\''.format(command_name))
 
 if __name__ == '__main__':
