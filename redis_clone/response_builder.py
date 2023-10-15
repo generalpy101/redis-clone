@@ -25,18 +25,19 @@ class ResponseBuilder:
         else:
             raise Exception("Protocol version not supported")
 
-    def _build_protocol_2_response(self, type, data):
+    def _build_protocol_2_response(self, data_type, data):
         """
         Build response according to protocol version 2
         """
-        if type == Protocol_2_Data_Types.ERROR:
-            return self._build_protocol_2_error(data)
-        elif type == Protocol_2_Data_Types.SIMPLE_STRING:
-            return self._build_protocol_2_simple_string(data)
-        elif type == Protocol_2_Data_Types.BULK_STRING:
-            return self._build_protocol_2_bulk_string(data)
-        else:
-            raise Exception("Invalid protocol data type")
+        function_dict = {
+            Protocol_2_Data_Types.ERROR: self._build_protocol_2_error,
+            Protocol_2_Data_Types.SIMPLE_STRING: self._build_protocol_2_simple_string,
+            Protocol_2_Data_Types.BULK_STRING: self._build_protocol_2_bulk_string,
+            Protocol_2_Data_Types.INTEGER: self._build_protocol_2_integer,
+        }
+        if data_type not in function_dict:
+            raise Exception("Invalid response type")
+        return function_dict[data_type](data)
 
     def _build_protocol_2_error(self, data):
         """
@@ -79,3 +80,14 @@ class ResponseBuilder:
             data = b"$" + length + PROTOCOL_SEPARATOR + data.encode("utf-8") + PROTOCOL_SEPARATOR
 
             return data
+        
+    def _build_protocol_2_integer(self, data):
+        """
+        Integers are used in order to represent whole numbers between -(2^63) and 2^63-1.
+        They are encoded in the following way:
+        :<data>\r\n
+        """
+        # Syntax of integer is :<data>
+        # So data is second element after integer specifier
+        data = b":" + str(data).encode("utf-8") + PROTOCOL_SEPARATOR
+        return data

@@ -84,7 +84,9 @@ class Parser:
                     else:
                         raise Exception(f"Expected value for subargument {arg}, but none provided.")
                 else:
-                    command_args.append((arg, None))
+                    # Subargument does not take a value, so just append it to the command args.
+                    # Adding True as a placeholder value to indicate that the subargument is present.
+                    command_args.append((arg, True))
             
             else:
                 command_args.append(arg)

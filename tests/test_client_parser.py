@@ -46,7 +46,7 @@ class TestParserClient:
         
         print(args)
         assert command == "SET"
-        assert args == ['mykey', 'myvalue', ('EX', '10'), ('NX', None)]
+        assert args == ['mykey', 'myvalue', ('EX', '10'), ('NX', True)]
 
     def setup_method(self):
         self.parser = Parser(protocol_version=2)
