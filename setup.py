@@ -1,16 +1,16 @@
 # Setup file for redis_clone
 
-'''
+"""
 Current Dev Dependencies:
     - pytest
     - redis
-'''
+"""
 
 import setuptools
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-    
+
 setuptools.setup(
     name="redis_clone",
     version="0.0.1",
@@ -23,14 +23,11 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License"
+        "License :: OSI Approved :: MIT License",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.6",
     # Dev dependencies
     extras_require={
-        'dev': [
-            'pytest',
-            'redis'
-        ],
+        "dev": ["pytest", "redis"],
     },
 )
