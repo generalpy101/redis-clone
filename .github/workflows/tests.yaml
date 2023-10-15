@@ -18,13 +18,12 @@ jobs:
         uses: actions/checkout@v2
       - name: Start redis service
         run: |
-          ls
           docker-compose up -d --build redis-server 
-          sleep 10
+          sleep 5
       - name: run pytest
         run: |
           set -o pipefail
-          docker-compose run --rm --entrypoint='bash -c "cd /usr/src/redis-clone/ && pytest"' redis-server | tee pytest_coverage.txt
+          docker-compose run --rm --entrypoint='bash -c "cd /usr/src/redis-clone/ && pytest -vvv"' redis-server | tee pytest_coverage.txt
       - name: bring down the services
         run: docker-compose -f docker-compose.yaml down
   

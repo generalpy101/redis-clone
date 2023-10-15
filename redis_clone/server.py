@@ -11,6 +11,9 @@ from redis_clone.response_builder import ResponseBuilder
 
 logger = logging.getLogger(__name__)
 
+HOST = os.environ.get('REDIS_HOST', '0.0.0.0')
+PORT = os.environ.get('REDIS_PORT', 9999)
+
 class Protocol_2_Commands(Enum):
     '''
     Some common redis commands
@@ -125,5 +128,5 @@ class RedisServer:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    server = RedisServer(host='localhost', port=9999)
+    server = RedisServer(host=HOST, port=PORT)
     server.start()

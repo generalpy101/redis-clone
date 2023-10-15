@@ -1,12 +1,14 @@
 import redis
 import pytest
-import threading
-from redis_clone.server import RedisServer
+import os
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "redis-server")
+REDIS_PORT = os.environ.get("REDIS_PORT", 9999)
 
 # Server should be running before running the tests
 @pytest.fixture(scope="function")
 def client():
-    r = redis.StrictRedis(host='localhost', port=9999, decode_responses=True)
+    r = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
     yield r
     r.close()
 
