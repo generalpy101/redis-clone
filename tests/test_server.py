@@ -3,18 +3,7 @@ import pytest
 import threading
 from redis_clone.server import RedisServer
 
-@pytest.fixture(scope="session", autouse=True)
-def server():
-    # Start server in a separate thread
-    server = RedisServer(host='localhost', port=9999)
-    thread = threading.Thread(target=server.start)
-    thread.daemon = True
-    thread.start()
-    yield
-    # If you have a shutdown method for your server, call it here to gracefully stop the server
-    server.stop()
-    thread.join()
-
+# Server should be running before running the tests
 @pytest.fixture(scope="function")
 def client():
     r = redis.StrictRedis(host='localhost', port=9999, decode_responses=True)

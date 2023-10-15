@@ -1,0 +1,26 @@
+name: Tests
+
+push:
+    branches:
+      - master
+      - 'platform-api_release_*'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  tests:
+    name: Running tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start redis service
+        run: |
+          docker-compose up -d --build redis-server 
+          sleep 10
+      - name: run pytest
+        run: |
+          set -o pipefail
+          docker-compose run --rm --entrypoint='bash -c "cd /usr/src/redis-clone/ && pytest"' redis-server | tee pytest_coverage.txt
+      - name: bring down the services
+        run: docker-compose -f docker-compose.yaml down
+  

@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  # Custom redis server
+  redis-server:
+    build: .
+    command: python redis_clone/server.py
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
