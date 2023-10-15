@@ -2,8 +2,7 @@ name: Tests
 
 push:
     branches:
-      - master
-      - 'platform-api_release_*'
+      - main
   pull_request:
     branches:
       - '**'
