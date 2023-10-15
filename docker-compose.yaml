@@ -6,5 +6,8 @@ services:
     build: .
     command: python redis_clone/server.py
     restart: unless-stopped
+    environment:
+      - REDIS_HOST=redis-server # For tests
+      - REDIS_PORT=9999 # For tests
     ports:
       - "9999:9999"
