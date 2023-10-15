@@ -2,6 +2,19 @@ from enum import Enum
 
 PROTOCOL_SEPARATOR = b'\r\n'
 
+COMMANDS_METADATA = {
+    "SET": {
+        "EX": {"takes_value": True},
+        "PX": {"takes_value": True},
+        "EXAT": {"takes_value": True},
+        "PXAT": {"takes_value": True},
+        "NX": {"takes_value": False},
+        "XX": {"takes_value": False},
+        "KEEPTTL": {"takes_value": False},
+        "GET": {"takes_value": False},
+    }
+}
+
 
 class Protocol_2_Data_Types(Enum):
     """
@@ -43,21 +56,41 @@ class Parser:
         if not data:
             return None
 
-        # Check if first byte is an array specifier else raise exception
         if data[0:1] != Protocol_2_Data_Types.ARRAY.value:
             raise Exception("Invalid protocol data")
 
-        # Get number of elements in array
-        # First item will be * rest should be number of elements
         num_elements = int(data[1:data.index(PROTOCOL_SEPARATOR)])
-
-        # Getting the commands and arguments using slicing
         remaining_data = data.split(PROTOCOL_SEPARATOR, num_elements * 2 + 1)[1:]
-        command_name = self._parse_bulk_string(remaining_data[0] + PROTOCOL_SEPARATOR + remaining_data[1])
-
-        # Parsing the arguments
-        command_args = [self._parse_bulk_string(remaining_data[i] + PROTOCOL_SEPARATOR + remaining_data[i+1]) for i in range(2, num_elements * 2, 2)]
         
+        # Convert only the command name to uppercase, leaving arguments in their original case.
+        command_name = self._parse_bulk_string(remaining_data[0] + PROTOCOL_SEPARATOR + remaining_data[1]).upper()
+
+        idx = 2
+        command_args = []
+
+        while idx < num_elements * 2:
+            # Fetch the argument but keep its original casing.
+            arg = self._parse_bulk_string(remaining_data[idx] + PROTOCOL_SEPARATOR + remaining_data[idx+1])
+            
+            # If the command is recognized and the argument is a subargument, uppercase it for consistent processing.
+            if command_name in COMMANDS_METADATA and arg.upper() in COMMANDS_METADATA[command_name]:
+                arg = arg.upper()  # Convert subarguments to uppercase.
+
+                if COMMANDS_METADATA[command_name][arg]["takes_value"]:
+                    idx += 2
+                    if idx < num_elements * 2:
+                        subarg_value = self._parse_bulk_string(remaining_data[idx] + PROTOCOL_SEPARATOR + remaining_data[idx+1])
+                        command_args.append((arg, subarg_value))
+                    else:
+                        raise Exception(f"Expected value for subargument {arg}, but none provided.")
+                else:
+                    command_args.append((arg, None))
+            
+            else:
+                command_args.append(arg)
+            
+            idx += 2
+
         return command_name, command_args
 
     def parse_data(self, data):

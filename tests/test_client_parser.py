@@ -20,7 +20,6 @@ class TestParserClient:
         """
         Test SET command request
         """
-        # Test initial connection
         test_str = b"*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n"
         command, args = self.parser.parse_client_request(test_str)
 
@@ -31,12 +30,23 @@ class TestParserClient:
         """
         Test GET command request
         """
-        # Test initial connection
         test_str = b"*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n"
         command, args = self.parser.parse_client_request(test_str)
 
         assert command == "GET"
         assert args == ["mykey"]
+        
+    def test_subargs_parsing(self):
+        '''
+        Some commands in redis supports optional subargs.
+        eg: SET mykey myvalue EX 10 NX
+        '''
+        test_str = b"*6\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n$2\r\nEX\r\n$2\r\n10\r\n$2\r\nNX\r\n"
+        command, args = self.parser.parse_client_request(test_str)
+        
+        print(args)
+        assert command == "SET"
+        assert args == ['mykey', 'myvalue', ('EX', '10'), ('NX', None)]
 
     def setup_method(self):
         self.parser = Parser(protocol_version=2)
