@@ -57,8 +57,6 @@ class RedisServer:
                 break
 
             logger.info(f"Received data: {data}")
-            # Convert bytes to string
-            data = data.decode("utf-8")
             command_name, command_args = self.parser.parse_client_request(data)
             logger.info(f"Command name: {command_name}")
             logger.info(f"Command args: {command_args}")

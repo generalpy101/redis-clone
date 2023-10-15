@@ -46,9 +46,8 @@ class ResponseBuilder:
         """
         # Syntax of error is -<data>
         # So data is second element after error specifier
-        data = f"-{data}{PROTOCOL_SEPARATOR}"
-
-        return data.encode("utf-8")
+        data = b"-" + data.encode("utf-8") + PROTOCOL_SEPARATOR
+        return data
 
     def _build_protocol_2_simple_string(self, data):
         """
@@ -58,9 +57,8 @@ class ResponseBuilder:
         """
         # Syntax of simple string is +<data>
         # So data is second element after simple string specifier
-        data = f"+{data}{PROTOCOL_SEPARATOR}"
-
-        return data.encode("utf-8")
+        data = b"+" + data.encode("utf-8") + PROTOCOL_SEPARATOR
+        return data
 
     def _build_protocol_2_bulk_string(self, data):
         """
@@ -73,10 +71,11 @@ class ResponseBuilder:
 
         # If data is None then return nil value
         if data is None:
-            return f"${-1}{PROTOCOL_SEPARATOR}".encode("utf-8")
+            return b"$-1" + PROTOCOL_SEPARATOR
         else:
             # Syntax of bulk string is $<data length>
             # So data is second element after bulk string specifier
-            data = f"${len(data)}{PROTOCOL_SEPARATOR}{data}{PROTOCOL_SEPARATOR}"
+            length = str(len(data)).encode("utf-8")
+            data = b"$" + length + PROTOCOL_SEPARATOR + data.encode("utf-8") + PROTOCOL_SEPARATOR
 
-            return data.encode("utf-8")
+            return data
