@@ -32,12 +32,14 @@ class RedisServer:
         self.parser = Parser(protocol_version=2)
         self.response_builder = ResponseBuilder(protocol_version=2)
         self.data_store = {}
+        self.running = False
         
     def start(self):
         logger.info('Starting server...')
         self._create_socket()
         self._bind_socket()
         self._listen()
+        self.running = True
         self._accept_connections()
         
     def _create_socket(self):
@@ -63,7 +65,7 @@ class RedisServer:
     
     def _accept_connections(self):
         logger.info('Accepting connections...')
-        while True:
+        while self.running:
             conn, addr = self.socket.accept()
             logger.info(f'Connection established with {addr}')
             self._handle_connection(conn, addr)
@@ -115,6 +117,11 @@ class RedisServer:
             return self.response_builder.build_response(Protocol_2_Data_Types.BULK_STRING, self.data_store[key])
             
         return self.response_builder.build_response(Protocol_2_Data_Types.ERROR, 'ERR unknown command \'{}\''.format(command_name))
+    
+    def stop(self):
+        logger.info('Stopping server...')
+        self.running = False
+        self.socket.close()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
