@@ -15,6 +15,7 @@ jobs:
     steps:
       - name: Start redis service
         run: |
+          ls
           docker-compose up -d --build redis-server 
           sleep 10
       - name: run pytest
