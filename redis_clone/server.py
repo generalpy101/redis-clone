@@ -1,7 +1,7 @@
 import socket
 import sys
 import os
-import time
+import asyncio
 import logging
 
 
@@ -37,48 +37,22 @@ class RedisServer:
         self.data_store = {}
         self.running = False
         
-    def start(self):
+    async def start(self):
         logger.info('Starting server...')
-        self._create_socket()
-        self._bind_socket()
-        self._listen()
-        self.running = True
-        self._accept_connections()
-        
-    def _create_socket(self):
-        logger.info('Creating socket...')
-        try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error as e:
-            logger.error(f'Error creating socket: {e}')
-            sys.exit(1)
-    
-    def _bind_socket(self):
-        logger.info(f'Binding socket to {self.host}:{self.port}')
-        try:
-            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.socket.bind((self.host, self.port))
-        except socket.error as e:
-            logger.error(f'Error binding socket: {e}')
-            sys.exit(1)
-            
-    def _listen(self):
-        logger.info('Listening...')
-        self.socket.listen(5)
-    
-    def _accept_connections(self):
-        logger.info('Accepting connections...')
-        while self.running:
-            conn, addr = self.socket.accept()
-            logger.info(f'Connection established with {addr}')
-            self._handle_connection(conn, addr)
+        self.server = await asyncio.start_server(self._handle_connection, self.host, self.port)
+        async with self.server:
+            await self.server.serve_forever()
 
-    def _handle_connection(self, conn, addr):
+    async def _handle_connection(self, reader, writer):
+        addr = writer.get_extra_info('peername')
+        logger.info(f"Connection established with {addr}")
+
         while True:
-            data = conn.recv(1024)
+            data = await reader.read(1024)
             if not data:
                 break
-            logger.info(f'Received data: {data}')
+
+            logger.info(f"Received data: {data}")
             # Convert bytes to string
             data = data.decode('utf-8')
             command_name, command_args = self.parser.parse_client_request(data)
@@ -86,10 +60,14 @@ class RedisServer:
             logger.info(f'Command args: {command_args}')
             response = self._process_command(command_name, command_args)
             logger.info(f'Response: {response}')
-            conn.sendall(response)
-        conn.close()
+            writer.write(response)
+            await writer.drain()
 
-    def _process_command(self, command_name, command_args):
+        logger.info(f"Connection closed with {addr}")
+        writer.close()
+        await writer.wait_closed()
+
+    def _process_command(self, command_name, command_args) -> bytes:
         # Convert command name to uppercase
         command_name = command_name.upper()
         if command_name == Protocol_2_Commands.PING.value:
@@ -123,10 +101,9 @@ class RedisServer:
     
     def stop(self):
         logger.info('Stopping server...')
-        self.running = False
-        self.socket.close()
+        self.server.close()
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     server = RedisServer(host=HOST, port=PORT)
-    server.start()
+    asyncio.run(server.start())
