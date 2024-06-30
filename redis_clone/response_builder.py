@@ -1,4 +1,4 @@
-from redis_clone.redis_parser import Protocol_2_Data_Types, PROTOCOL_SEPARATOR
+from redis_clone.parser.redis_parser import Protocol_2_Data_Types, PROTOCOL_SEPARATOR
 
 
 class ResponseBuilder:

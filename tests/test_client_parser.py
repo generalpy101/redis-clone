@@ -1,5 +1,5 @@
 # Using pytest for tests
-from redis_clone.redis_parser import Parser, Protocol_2_Data_Types
+from redis_clone.parser.redis_parser import Parser, Protocol_2_Data_Types
 
 
 class TestParserClient:
@@ -11,7 +11,7 @@ class TestParserClient:
 
         # Test initial connection
         test_str = b"*1\r\n$7\r\nCOMMAND\r\n"
-        command, args = self.parser.parse_client_request(test_str)
+        command, args = self.parser.parse(test_str)
 
         assert command == "COMMAND"
         assert args == []
@@ -21,7 +21,7 @@ class TestParserClient:
         Test SET command request
         """
         test_str = b"*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n"
-        command, args = self.parser.parse_client_request(test_str)
+        command, args = self.parser.parse(test_str)
 
         assert command == "SET"
         assert args == ["mykey", "myvalue"]
@@ -31,7 +31,7 @@ class TestParserClient:
         Test GET command request
         """
         test_str = b"*2\r\n$3\r\nGET\r\n$5\r\nmykey\r\n"
-        command, args = self.parser.parse_client_request(test_str)
+        command, args = self.parser.parse(test_str)
 
         assert command == "GET"
         assert args == ["mykey"]
@@ -42,7 +42,7 @@ class TestParserClient:
         eg: SET mykey myvalue EX 10 NX
         '''
         test_str = b"*6\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$7\r\nmyvalue\r\n$2\r\nEX\r\n$2\r\n10\r\n$2\r\nNX\r\n"
-        command, args = self.parser.parse_client_request(test_str)
+        command, args = self.parser.parse(test_str)
         
         print(args)
         assert command == "SET"

@@ -1,5 +1,7 @@
 from enum import Enum
 
+from redis_clone.parser.base import BaseParser
+
 PROTOCOL_SEPARATOR = b'\r\n'
 
 COMMANDS_METADATA = {
@@ -31,11 +33,11 @@ class Protocol_2_Data_Types(Enum):
     ARRAY = b"*"
 
 
-class Parser:
+class Parser(BaseParser):
     def __init__(self, protocol_version) -> None:
         self.protocol_version = protocol_version
 
-    def parse_client_request(self, data):
+    def parse(self, data, *args, **kwargs):
         """
         This function parses the client request and returns the command name and arguments
         """

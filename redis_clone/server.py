@@ -1,18 +1,19 @@
 import time
-import sys
 import os
 import asyncio
 import logging
 
 
 from enum import Enum
-from redis_clone.redis_parser import Parser, Protocol_2_Data_Types
+from hiredis import Reader
+from redis_clone.parser.redis_parser import Parser, Protocol_2_Data_Types
+from redis_clone.parser.hi_redis_parser import HiRedisParser
 from redis_clone.response_builder import ResponseBuilder
 
 logger = logging.getLogger(__name__)
 
 HOST = os.environ.get("REDIS_HOST", "0.0.0.0")
-PORT = os.environ.get("REDIS_PORT", 9999)
+PORT = int(os.environ.get("REDIS_PORT", 9999))
 
 
 class Protocol_2_Commands(Enum):
@@ -94,7 +95,7 @@ class RedisServer:
                 break
 
             logger.info(f"Received data: {data}")
-            command_name, command_args = self.parser.parse_client_request(data)
+            command_name, command_args = self.parser.parse(data, encoding="utf-8", errors="strict")
             logger.info(f"Command name: {command_name}")
             logger.info(f"Command args: {command_args}")
             response = self._process_command(command_name, command_args)
